@@ -1,14 +1,3 @@
-# <div id="top"></div>
-<!--
-*** Thanks for checking out the Best-README-Template. If you have a suggestion
-*** that would make this better, please fork the repo and create a pull request
-*** or simply open an issue with the tag "enhancement".
-*** Don't forget to give the project a star!
-*** Thanks again! Now go create something AMAZING! :D
--->
-
-
-
 <!-- PROJECT SHIELDS -->
 <!--
 *** I'm using markdown "reference style" links for readability.
@@ -23,8 +12,14 @@
 [![Issues][issues-shield]][issues-url]
 [![MIT License][license-shield]][license-url]
 [![LinkedIn][linkedin-shield]][linkedin-url]
-
-
+# <div id="top"></div>
+<!--
+*** Thanks for checking out the Best-README-Template. If you have a suggestion
+*** that would make this better, please fork the repo and create a pull request
+*** or simply open an issue with the tag "enhancement".
+*** Don't forget to give the project a star!
+*** Thanks again! Now go create something AMAZING! :D
+-->
 
 <!-- PROJECT LOGO -->
 <br />
@@ -33,10 +28,10 @@
     <img src="assets/images/logo.png" alt="Logo" width="80" height="80">
   </a>
 
-<h3 align="center">Daily Planner</h3>
+<h3 align="center">Weather App</h3>
 
   <p align="center">
-    A daily planner with save feature
+    A small example weather app with a 5-day forecast
     <br />
     <a href="https://atmention.github.io/weather_app/">View Demo</a>
     ·
@@ -49,8 +44,6 @@
 
 
 <!-- ABOUT THE PROJECT -->
-Nice little Weather App
-
 [![Product Name Screen Shot][product-screenshot]](https://atmention.github.io/weather_app/)
 
 Keep tabs on my commit history to see the changes made across time.
