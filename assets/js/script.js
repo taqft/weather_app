@@ -1,10 +1,10 @@
-// add the listeners for page events, pulling weather data 
+// add the listeners for page elements
 const cityFormEl = $("#target");
 const cityInputEl = $("#city-input");
 const citySubmitEl = $("#city-submit");
 const searchHistoryEl = $("#search-history");
 
-// initialize necessary global vars
+// config
 const APIKEY = "222033ee7e3cef36d8116bb25da24eea";
 let queryURL = ``;
 let currentCity = {
@@ -18,10 +18,11 @@ let currentCity = {
     humidity: 0,
     uvi: 0,
 };
+
+// state
 let currentCityLat = ``;
 let currentCityLon = ``;
 let currentCityName = ``;
-
 let forecastWeather = [];
 let forecastLength = 5;
 
@@ -62,21 +63,28 @@ const pullCityWeatherData = () => {
             status: response.status
         })).then(res => {
             if (res.status === 200) {
-
-                console.log(`Status: ${res.status} OK`);
-                console.log(res.data);
-
-                // grab the required data from the response object
-                // since we need the coordinates for the OneCall api, extract them
+                // basic identity/coords are still handy to keep
                 currentCity.lat = res.data.coord.lat;
                 currentCity.lon = res.data.coord.lon;
                 currentCity.name = res.data.name;
 
-                // now that the city data has been pulled, we can use the coordinates
-                // to pull the onecall weather data for the 5 day forecast
-                queryURL = `https://api.openweathermap.org/data/2.5/onecall?lat=${currentCity.lat}&lon=${currentCity.lon}&units=imperial&appid=${APIKEY}`;
-                pullCoordWeatherData();
+                // populate "today" from /weather
+                currentCity.date = new Date(res.data.dt * 1000).toLocaleDateString('en-US');
+                currentCity.icon = res.data.weather && res.data.weather[0] ? res.data.weather[0].icon : '';
+                currentCity.temp = res.data.main ? res.data.main.temp : 0;
+                currentCity.wind = res.data.wind ? res.data.wind.speed : 0;
+                currentCity.humidity = res.data.main ? res.data.main.humidity : 0;
 
+                // /weather does not include UV index
+                currentCity.uvi = null;
+
+                // render the big light-blue panel
+                loadCurrentWeather();
+
+                // now fetch and render the 5-day forecast
+                pullFiveDayForecast();
+
+                // If you still want a forecast later, call another endpoint (e.g. /forecast) here.
             } else {
                 console.log(`An error occurred. Status: ${res.status}`);
             }
@@ -92,9 +100,6 @@ const pullCoordWeatherData = () => {
             status: response.status
         })).then(res => {
             if (res.status === 200) {
-
-                console.log(`Status: ${res.status} OK`);
-                console.log(res.data);
 
                 // grab the required data from the response object
                 currentCity.date = new Date(res.data.current.dt * 1000).toLocaleDateString('en-US');
@@ -129,6 +134,8 @@ const pullCoordWeatherData = () => {
                 loadFiveDayWeather();
             } else {
                 console.log(`An error occurred. Status: ${res.status}`);
+                console.log(`Error: ${res.data.message}`)
+                console.log(`URL: ${queryURL}`);
             }
         }));
 }
@@ -142,76 +149,110 @@ const storeSearchHistory = (userSearchQuery) => {
 }
 
 const loadCurrentWeather = () => {
-
-    //clear any currently displayed data in the current and forecast boxes
-    let currentWeatherEl = $("#right-div");
+    const currentWeatherEl = $("#right-div");
     currentWeatherEl.empty();
 
-    // check to see what color the uv index div should be on the page
-    let uvIndexCondition = 'green';
+    // only compute a UV color if we actually have a number
+    let uvDiv = null;
+    if (typeof currentCity.uvi === 'number') {
+        let uvIndexCondition = 'green';
+        if (currentCity.uvi >= 8) uvIndexCondition = 'darkorchid';
+        else if (currentCity.uvi >= 6) uvIndexCondition = 'red';
+        else if (currentCity.uvi >= 3) uvIndexCondition = 'darkorange';
 
-    if (currentCity.uvi >= 8) {
-        uvIndexCondition = 'darkorchid';
-    } else if (currentCity.uvi >= 6) {
-        uvIndexCondition = 'red';
-    } else if (currentCity.uvi >= 3) {
-        uvIndexCondition = 'darkorange';
-    } else {
-        // do nothing, default is green for uvi < 3
+        uvDiv = $('<div><p></p></div>')
+            .attr('style', `background-color: ${uvIndexCondition}; width: max-content; padding: 0 5px;`)
+            .find('p')
+            .text(`UV Index: ${currentCity.uvi}`)
+            .attr('style', 'color: white;')
+            .end();
     }
 
-    // dynamically add the new weather data to the screen
-    let date = $('<h1>')
-        .text(`${currentCity.name} (${currentCity.date})`)
-        .attr("style", "display: inline");
-    let icon = $('<img>')
-        .attr("src", `https://openweathermap.org/img/wn/${currentCity.icon}@2x.png`);
-    let temp = $('<p>')
+    const date = $('<h1>')
+        .text(`${currentCity.name} (${currentCity.date})`).attr('style', 'display:inline');
+    const icon = $('<img>')
+        .attr('src', `https://openweathermap.org/img/wn/${currentCity.icon}@2x.png`);
+    const temp = $('<p>')
         .text(`Temp: ${currentCity.temp}°F`);
-    let wind = $('<p>')
+    const wind = $('<p>')
         .text(`Wind Speed: ${currentCity.wind} MPH`);
-    let humi = $('<p>')
+    const humi = $('<p>')
         .text(`Humidity: ${currentCity.humidity}%`);
-    let uvi = $('<div><p></p></div>')
-        .attr('style', `background-color: ${uvIndexCondition}; width: max-content; padding: 0 5px;`)
-        .find('p')
-        .text(`UV Index: ${currentCity.uvi}`)
-        .attr('style', 'color: white;')
-        .end()
 
-    currentWeatherEl.append(date)
+    currentWeatherEl
+        .append(date)
         .append(icon)
         .append(temp)
         .append(wind)
-        .append(humi)
-        .append(uvi);
-}
+        .append(humi);
+
+    if (uvDiv) currentWeatherEl.append(uvDiv);
+};
+
+const pullFiveDayForecast = () => {
+    const url = `https://api.openweathermap.org/data/2.5/forecast?lat=${currentCity.lat}&lon=${currentCity.lon}&units=imperial&appid=${APIKEY}`;
+
+    fetch(url)
+        .then(r => r.json())
+        .then(res => {
+            if (res.cod !== "200") {
+                console.log("Forecast error:", res);
+                return;
+            }
+
+            const tz = res.city.timezone || 0; // seconds offset from UTC
+            const buckets = {};                 // YYYY-M-D -> array of 3h items
+
+            res.list.forEach(item => {
+                const local = new Date((item.dt + tz) * 1000);
+                const key = `${local.getUTCFullYear()}-${local.getUTCMonth() + 1}-${local.getUTCDate()}`;
+                (buckets[key] ||= []).push(item);
+            });
+
+            // keys sorted chronological; first is "today" -> skip it
+            const dayKeys = Object.keys(buckets).sort().slice(1, 6);
+
+            forecastWeather = dayKeys.map(key => {
+                const arr = buckets[key];
+
+                // pick icon from the slot closest to 12:00 local
+                const target = arr.reduce((best, cur) => {
+                    const h = new Date((cur.dt + tz) * 1000).getUTCHours();
+                    const diff = Math.abs(12 - h);
+                    return !best || diff < best.diff ? { item: cur, diff } : best;
+                }, null).item;
+
+                const maxTemp = Math.max(...arr.map(x => x.main.temp_max));
+                const avgWind = (arr.reduce((s, x) => s + x.wind.speed, 0) / arr.length);
+                const avgHumi = Math.round(arr.reduce((s, x) => s + x.main.humidity, 0) / arr.length);
+
+                return {
+                    date: new Date((target.dt + tz) * 1000).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' }),
+                    icon: target.weather[0].icon,
+                    temp: Math.round(maxTemp * 100) / 100,
+                    wind: Math.round(avgWind * 100) / 100,
+                    humi: avgHumi,
+                };
+            });
+
+            loadFiveDayWeather();
+        })
+        .catch(err => console.error(err));
+};
 
 const loadFiveDayWeather = () => {
-
-    for (var i = 0; i < forecastLength; i++) {
-
-        let currentCard = $(`#card-${i}`);
-
-        // clear any existing weather data on the current card before inserting new data
+    const count = Math.min(forecastLength, forecastWeather.length);
+    for (let i = 0; i < count; i++) {
+        const currentCard = $(`#card-${i}`);
         currentCard.children(".card-header").text('');
         currentCard.children(".card-body").empty();
 
-        let date = $('<h3>')
-            .text(forecastWeather[i].date);
-        let icon = $('<img>')
-            .attr("src", `https://openweathermap.org/img/wn/${forecastWeather[i].icon}@2x.png`);
-        let temp = $('<p>')
-            .text(`Temp: ${forecastWeather[i].temp}°F`);
-        let wind = $('<p>')
-            .text(`Wind: ${forecastWeather[i].wind} MPH`);
-        let humi = $('<p>')
-            .text(`Humidity: ${forecastWeather[i].humi}%`);
-
-        currentCard.children(".card-header").append(date);
-        currentCard.children(".card-body").append(icon)
-            .append(temp)
-            .append(wind)
-            .append(humi);
+        const f = forecastWeather[i];
+        currentCard.children(".card-header").append($('<h3>').text(f.date));
+        currentCard.children(".card-body")
+            .append($('<img>').attr("src", `https://openweathermap.org/img/wn/${f.icon}@2x.png`))
+            .append($('<p>').text(`Temp: ${f.temp}°F`))
+            .append($('<p>').text(`Wind: ${f.wind} MPH`))
+            .append($('<p>').text(`Humidity: ${f.humi}%`));
     }
-}
+};
